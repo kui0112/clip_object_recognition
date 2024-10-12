@@ -1,3 +1,4 @@
+import time
 from typing import List, Tuple, Optional
 from collections import namedtuple
 from threading import Thread
@@ -54,6 +55,9 @@ class MainContext(Thread):
     def stop(self):
         self.stopped = True
 
+        for processor in self.processors:
+            processor.destroy()
+
     def run(self):
         self.texts = self.cfg.texts
 
@@ -80,11 +84,16 @@ class MainContext(Thread):
             self.stop()
             return
         try:
+            if not self.cfg.fps:
+                self.cfg.fps = 1
+            time_interval = 1.0 / self.cfg.fps
             # 主循环
             while self.video_capture.isOpened() and not self.stopped:
                 res, frame = self.video_capture.read()
                 if not res:
                     break
+
+                start_time = time.time()
                 # mat to image
                 image: Image.Image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
@@ -95,14 +104,19 @@ class MainContext(Thread):
                     logits_per_image, logits_per_text = self.model(preprocessed_image, self.tokens)
                     probs = logits_per_image.softmax(dim=-1).cpu().numpy()
 
+                if self.stopped:
+                    break
+
                 # text和识别结果组合
                 values: List[Tuple[str, float]] = list(zip(self.texts, probs[0]))
-
                 # 处理结果
                 for processor in self.processors:
                     processor.process(image, values)
 
                 frames += 1
+                delta_time = time.time() - start_time
+                if delta_time < time_interval and time_interval - delta_time > 0.01:
+                    time.sleep(time_interval - delta_time)
         except KeyboardInterrupt as ex:
             print("keyboard interrupt.")
 

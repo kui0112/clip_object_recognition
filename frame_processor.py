@@ -15,13 +15,16 @@ class FrameProcessor(Processor):
         self.font: Optional[ImageFont] = None
 
     def initialize(self):
-        self.font = ImageFont.truetype(font=self.font_file, size=40)
+        self.font = ImageFont.truetype(font=self.font_file, size=20)
 
     def process(self, image: Image.Image, res: List[Tuple]):
         # 文字写到图像上
         drawn_image = self.draw_image(res, image)
         # 图像存放到缓冲区
         self.save_image(drawn_image)
+
+    def destroy(self):
+        pass
 
     def save_image(self, image: Image.Image):
         if not self.buffer.full():
@@ -34,8 +37,9 @@ class FrameProcessor(Processor):
         for i, (key, value) in enumerate(_values):
             i: int
             value = float(value)
-            content = f"{str.split(key, ',')[0]}: {value * 100:.2f}%"
+            sliced_key = key if len(key) <= 20 else key[:20]
+            content = f"{sliced_key}: {value * 100:.2f}%"
             x = 10
-            y = i * 50 + 10
+            y = i * 25 + 10
             draw.text((x, y), content, fill=(0, 0, 0), font=self.font)
         return image

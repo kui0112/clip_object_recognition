@@ -4,6 +4,7 @@ from typing import Optional, Callable
 from threading import Thread
 
 from PIL.Image import Image
+from PySide6 import QtGui
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget
 
@@ -46,6 +47,8 @@ class VideoPlayerWindow(QMainWindow):
         # 队列监听线程
         self.frame_updater: Optional[QueueListener] = None
 
+        self.on_close: Optional[Callable] = None
+
     def enable_frame_updater(self, _q: Queue):
         self.frame_queue = _q
 
@@ -54,10 +57,12 @@ class VideoPlayerWindow(QMainWindow):
             return
         self.video_label.setPixmap(frame.toqpixmap())
 
-    def close(self) -> None:
-        super().close()
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+        self.frame_updater.stop()
+        if self.on_close:
+            self.on_close()
 
-    def show(self) -> None:
+    def showEvent(self, event: QtGui.QShowEvent) -> None:
         if self.frame_queue is not None:
             self.frame_updater = QueueListener(self.frame_queue, self.update_frame)
             self.frame_updater.setDaemon(True)
@@ -65,7 +70,6 @@ class VideoPlayerWindow(QMainWindow):
 
         available_geometry = self.screen().availableGeometry()
         self.resize(int(available_geometry.width() / 3), int(available_geometry.height() / 2))
-        super().show()
 
 
 def setup_test_ui(cfg: Config):
@@ -74,8 +78,15 @@ def setup_test_ui(cfg: Config):
     frame_buffer_queue: Queue = Queue(maxsize=30)
 
     main_context = MainContext(cfg)
-    main_context.set_processors(
-        [SummarizeProcessor(cfg, cfg.enable_network_notify), FrameProcessor(cfg, frame_buffer_queue)])
+    summarizer = SummarizeProcessor(cfg, cfg.enable_network_notify)
+    frame_proc = FrameProcessor(cfg, frame_buffer_queue)
+
+    def on_close():
+        main_context.stop()
+
+    window.on_close = on_close
+
+    main_context.set_processors([summarizer, frame_proc])
     main_context.setDaemon(True)
     main_context.start()
 

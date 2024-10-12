@@ -12,3 +12,7 @@ class Processor(abc.ABC):
     @abc.abstractmethod
     def process(self, image: Image.Image, res: List[Tuple[str, float]]):
         pass
+
+    @abc.abstractmethod
+    def destroy(self):
+        pass

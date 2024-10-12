@@ -31,15 +31,25 @@ class SummarizeProcessor(Processor):
 
         now = time.time()
         if now - self.previous_summarize_time > 3:
+            selected_res = "nothing"
             for text, prob in res:
                 condition = self.cfg.get_text_trigger_condition(text)
                 threshold = condition.get("trigger_prob_threshold")
 
                 if prob >= threshold and self.summarize(text):
-                    self.previous_summarize_time = now
-                    print(f"recognition result: {text}, probability={prob}.")
-                    if self.network_enabled:
-                        self.executor.submit(self.notify_through_network, self.cfg.text2name.get(text))
+                    selected_res = text
+
+            print(f"recognition result: {selected_res}.")
+            if self.network_enabled:
+                try:
+                    self.executor.submit(self.notify_through_network, self.cfg.text2name.get(selected_res))
+                except Exception as ex:
+                    pass
+
+            self.previous_summarize_time = now
+
+    def destroy(self):
+        self.executor.shutdown(wait=False)
 
     def notify_through_network(self, name: str):
         try:
@@ -54,7 +64,7 @@ class SummarizeProcessor(Processor):
 
         records = self.frame_records[text]
         if len(records) < summarize_frames:
-            return
+            return False
         selected_records = records[len(records) - summarize_frames:]
 
         proportion = sum(map(lambda x: float(x.reach_trigger_condition), selected_records)) / len(selected_records)
