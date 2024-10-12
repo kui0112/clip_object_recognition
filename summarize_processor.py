@@ -31,19 +31,32 @@ class SummarizeProcessor(Processor):
 
         now = time.time()
         if now - self.previous_summarize_time > 3:
+            selected_res = "nothing"
+            selected_prob = 0
             for text, prob in res:
                 condition = self.cfg.get_text_trigger_condition(text)
                 threshold = condition.get("trigger_prob_threshold")
+                summary_pass, average_prob = self.summarize(text)
+                if prob >= threshold and summary_pass:
+                    selected_res = text
+                    selected_prob = average_prob
 
-                if prob >= threshold and self.summarize(text):
-                    self.previous_summarize_time = now
-                    print(f"recognition result: {text}, probability={prob}.")
-                    if self.network_enabled:
-                        self.executor.submit(self.notify_through_network, self.cfg.text2name.get(text))
+            print(f"recognition result: {selected_res}, probability: {selected_prob}.")
+            if self.network_enabled:
+                try:
+                    name = self.cfg.text2name.get(selected_res)
+                    self.executor.submit(self.notify_through_network, name, selected_prob)
+                except Exception as ex:
+                    pass
 
-    def notify_through_network(self, name: str):
+            self.previous_summarize_time = now
+
+    def destroy(self):
+        self.executor.shutdown(wait=False)
+
+    def notify_through_network(self, name: str, prob: float):
         try:
-            requests.get(self.cfg.notify_url, {"object_name": name}, timeout=0.8)
+            requests.get(self.cfg.notify_url, {"object_name": name, "prob": prob}, timeout=1)
         except Exception as ex:
             print(ex)
 
@@ -54,11 +67,16 @@ class SummarizeProcessor(Processor):
 
         records = self.frame_records[text]
         if len(records) < summarize_frames:
-            return
-        selected_records = records[len(records) - summarize_frames:]
+            return False, 0
 
-        proportion = sum(map(lambda x: float(x.reach_trigger_condition), selected_records)) / len(selected_records)
-        return proportion >= frame_proportion
+        selected_records = list(filter(lambda x: x.reach_trigger_condition, records[len(records) - summarize_frames:]))
+        if not len(selected_records):
+            return False, 0
+
+        proportion = len(selected_records) / summarize_frames
+        prob = sum(list(map(lambda x: x.prob, selected_records))) / len(selected_records)
+
+        return proportion >= frame_proportion, prob
 
     def save_record(self, values: List[Tuple[str, float]]):
         for i, (text, prob) in enumerate(values):
