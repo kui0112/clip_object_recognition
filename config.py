@@ -53,7 +53,7 @@ class Config:
             self.index.update({name: obj})
             self.text2name.update({text: name})
 
-        self.text2name.update({"nothing": ""})
+        self.text2name.update({"nothing": "nothing"})
 
         return self
 
