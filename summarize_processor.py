@@ -67,8 +67,12 @@ class SummarizeProcessor(Processor):
 
         records = self.frame_records[text]
         if len(records) < summarize_frames:
-            return False
+            return False, 0
+
         selected_records = list(filter(lambda x: x.reach_trigger_condition, records[len(records) - summarize_frames:]))
+        if not len(selected_records):
+            return False, 0
+
         proportion = len(selected_records) / summarize_frames
         prob = sum(list(map(lambda x: x.prob, selected_records))) / len(selected_records)
 
