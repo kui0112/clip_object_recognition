@@ -70,8 +70,9 @@ class MainContext(Thread):
         print("load model.")
         if not torch.cuda.is_available():
             raise Exception("cuda environment error.")
-        self.model, self.preprocess = clip.load("ViT-B/32", device=self.device, download_root=self.cfg.model_directory)
-        # 序列化文本
+        self.model, self.preprocess = clip.load(self.cfg.model_name,
+                                                device=self.device,
+                                                download_root=self.cfg.model_directory)
         self.tokens = clip.tokenize(self.texts).to(self.device)
         # 初始化 processors
         for processor in self.processors:

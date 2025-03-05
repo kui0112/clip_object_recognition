@@ -2,6 +2,7 @@
   "font_file": "resources/微软雅黑.ttf",
   "device": "cuda",
   "model_directory": "D:\\models",
+  "model_name": "ViT-L/14",
   "fps": 20,
   "notify_url": "http://localhost:9999/update_display",
   "enable_network_notify": true,

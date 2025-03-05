@@ -15,6 +15,8 @@ class Config:
         self.device = "cuda"
         # CLIP 模型所在目录
         self.model_directory = r"D:\models"
+        # 模型名
+        self.model_name = "ViT-B/32"
 
         # 最高帧率
         self.fps = 25
